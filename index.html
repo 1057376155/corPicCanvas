@@ -45,7 +45,7 @@ function getPic(r){
                 var ctx = canvas.getContext('2d');
                 ctx.drawImage(img,0,0,img.width,img.height);
                 console.log(img.height,img.width,'img.height,img.width')
-                getColor(0,img.height,img.width,ctx)
+                getColor(img.width,img.height,ctx)
                 addColorDOM(colors)   
                 console.log(AllColor)
                 
@@ -53,34 +53,30 @@ function getPic(r){
             }
         }
 }
-function getColor(index,max,endx,ctx){
-    for(var i=0;i<endx;i++){
+function getColor(w,h,ctx){
+    for(var i=0;i<w;i++){
 //        console.log(index,i,'index,i,')
-        var c = ctx.getImageData(index,i, 1, 1).data;
+        for(var j=0;j<h;j++){
+                var c = ctx.getImageData(i,j, 1, 1).data;
+                if(!AllColor[c.toString()]){
+                    AllColor[c.toString()]={
+                        color:c.toString(),
+                        xys:[[i,j]]
+                    }    
+                }else{
+                    AllColor[c.toString()].xys.push([i,j])
+                }
 
-//        console.log(c.toString())
-        if(!AllColor[c.toString()]){
-            AllColor[c.toString()]={
-                color:c.toString(),
-                xys:[[index,i]]
-            }    
-        }else{
-            AllColor[c.toString()].xys.push([index,i])
+                var likeColor=checkColor(c);
+                if(checkColor(c)&&colors[likeColor]){
+                    //已存在颜色
+                    colors[likeColor].num+=1;
+                }else{
+                    //不存在颜色
+                    colors[c.toString()]={num:1}
+                }
+            }
         }
-        
-        var likeColor=checkColor(c);
-        if(checkColor(c)&&colors[likeColor]){
-            //已存在颜色
-            colors[likeColor].num+=1;
-        }else{
-            //不存在颜色
-            colors[c.toString()]={num:1,x:index,y:i}
-        }
-    }
-    
-    if(index<max){
-        getColor(index+1,max,endx,ctx)
-    }
 
 }
 
@@ -165,14 +161,12 @@ function sort(obj){
     
 function setColorForCanvas(c){
     //在canvas 上绘制 覆盖
-//    console.log(c)
     var canvas = document.getElementById('picCanvas');
     var ctx = canvas.getContext('2d');
-    ctx.fillStyle = "blue"; 　
+    ctx.fillStyle = "white"; 　
     for(var i=0;i<c.xys.length;i++){
         ctx.fillRect(c.xys[i][0],c.xys[i][1],1,1);
     }
-    
     
 }
 </script>
