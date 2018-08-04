@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>选择图片并且识别颜色</title>
+    <style>
+        li{
+            text-decoration: none;
+            list-style: decimal-leading-zero;
+            width: 200px;
+            line-height: 50px;
+            text-align: center;
+            margin: 30px;
+            border: red dashed 1px;
+            font-size:12px;
+            float: left;
+        }
+    </style>
+</head>
+<body>
+    <input type="file" onchange="getPic(this)">
+    <canvas id="picCanvas"></canvas>
+    <ul id="colors"></ul>
+    
+<!--    <div class="tip">yixiao</div>-->
+</body>
+<script>
+var colors={}
+var AllColor={}
+var likeColors={}
+function getPic(r){
+        colors={};
+        document.getElementById('colors').innerHTML=""
+        var reader = new FileReader();
+        var img=new Image();
+        var fileObj={}
+        fileObj=r.files[0]
+        reader.readAsDataURL(r.files[0]);
+        reader.onload=(e)=>{
+            img.src=e.target.result;
+            img.onload=()=>{
+                var canvas = document.getElementById('picCanvas');
+                canvas.width=img.width;
+                canvas.height=img.height;
+                var ctx = canvas.getContext('2d');
+                ctx.drawImage(img,0,0,img.width,img.height);
+                console.log(img.height,img.width,'img.height,img.width')
+                getColor(0,img.height,img.width,ctx)
+                addColorDOM(colors)   
+                console.log(AllColor)
+                
+                
+            }
+        }
+}
+function getColor(index,max,endx,ctx){
+    for(var i=0;i<endx;i++){
+//        console.log(index,i,'index,i,')
+        var c = ctx.getImageData(index,i, 1, 1).data;
+
+//        console.log(c.toString())
+        if(!AllColor[c.toString()]){
+            AllColor[c.toString()]={
+                color:c.toString(),
+                xys:[[index,i]]
+            }    
+        }else{
+            AllColor[c.toString()].xys.push([index,i])
+        }
+        
+        var likeColor=checkColor(c);
+        if(checkColor(c)&&colors[likeColor]){
+            //已存在颜色
+            colors[likeColor].num+=1;
+        }else{
+            //不存在颜色
+            colors[c.toString()]={num:1,x:index,y:i}
+        }
+    }
+    
+    if(index<max){
+        getColor(index+1,max,endx,ctx)
+    }
+
+}
+
+function addColorDOM(o){
+    var arr=sort(o).reverse()
+    var d=document.createDocumentFragment();
+    var num=0;
+    var liDOM;
+    
+    for(var i=0;i<arr.length;i++){
+        liDOM=document.createElement("li")
+        liDOM.textContent ="颜色  "+arr[i].color+"    共"+arr[i].num+"次";
+        liDOM.setAttribute('data-color',arr[i].color)
+        liDOM.onclick=function(liDOM){
+//            console.log(liDOM.target.dataset.color)
+//            console.log(likeColors[liDOM.target.dataset.color])
+            for(var i in likeColors[liDOM.target.dataset.color]){
+                
+                setColorForCanvas(AllColor[i]);
+            }
+//            
+        }
+        liDOM.style.background="rgba("+arr[i].color+")"
+        d.append(liDOM);    
+    }
+    document.getElementById("colors").append(d);
+
+}
+    
+function checkColor(arr){
+    //检查颜色是否跟已经存在的颜色存在相似的情况 有相似值返回相似值 没有相似值返回原值
+    var sum=0;
+    var colorsDifference=[]
+    for(var i in colors){
+        sum=0;
+        for(var j=0;j<i.split(",").length;j++){
+             sum+= Math.abs(i.split(",")[j]-arr[j])
+            colorsDifference.push()
+        }
+        if(sum<100){
+            if(!likeColors[i]){
+                likeColors[i]={
+                    [arr.toString()]:{
+                        color:arr.toString(),
+                    },
+                    [i]:{
+                        color:i,
+                    }
+                    
+                }
+                
+            }else{
+                likeColors[i][arr.toString()]={
+                      color:arr.toString(),
+                }
+            }
+            return i;
+        }
+        
+    }
+    return arr.toString()
+    
+}
+    
+function sort(obj){
+    //排序
+    var arr=[]
+    for(var i in obj){
+        arr.push({num:obj[i].num,color:i})
+    }
+    for(var i=0;i<arr.length-1;i++){
+        for(var j=0;j<arr.length-i-1;j++){
+            if(arr[j].num>arr[j+1].num){
+                var temp=arr[j];
+                arr[j]=arr[j+1];
+                arr[j+1]=temp;
+            }
+        }
+    }
+    return arr
+}
+    
+function setColorForCanvas(c){
+    //在canvas 上绘制 覆盖
+//    console.log(c)
+    var canvas = document.getElementById('picCanvas');
+    var ctx = canvas.getContext('2d');
+    ctx.fillStyle = "blue"; 　
+    for(var i=0;i<c.xys.length;i++){
+        ctx.fillRect(c.xys[i][0],c.xys[i][1],1,1);
+    }
+    
+    
+}
+</script>
+</html>
