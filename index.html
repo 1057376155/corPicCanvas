@@ -4,6 +4,13 @@
     <meta charset="UTF-8">
     <title>选择图片并且识别颜色</title>
     <style>
+        html,body{
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+        }
         li{
             text-decoration: none;
             list-style: decimal-leading-zero;
@@ -14,23 +21,208 @@
             border: red dashed 1px;
             font-size:12px;
             float: left;
+            cursor: pointer;
+        }
+        .cover{
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.4);
+            position: fixed;
+            top: 0;
+            left: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            z-index: -3;
+            opacity: 0;
+        }
+        .cover.active{
+            z-index: 3;
+            opacity: 1;
+
+        }
+        .content{
+            display: flex;
+            height: 100%;
+        }
+        .canvas{
+            flex: 1;
+        }
+        .colors{
+            flex: 1;
+            height: 100%;
+            overflow: auto;
+            position: relative;
+            padding: 30px 0px;
+            box-sizing: border-box;
+        }
+        #colorNum{
+
         }
     </style>
 </head>
 <body>
     <input type="file" onchange="getPic(this)">
-    <canvas id="picCanvas"></canvas>
-    <ul id="colors"></ul>
+    <button onclick="getPicBtn()">重新获取颜色</button>
+    <input type="text" oninput="setFillColor(this)" placeholder="填充的颜色">
+    <input type="text" oninput="setSmallColor(this)" placeholder="填充颜色数量小于x的值,默认50">
+    <button id="fillColorNum" onclick="autoFillColor('s')">填充次数小于x的颜色</button>
+    <button id="fillColorNum" onclick="autoFillColor('b')">填充次数大于x的颜色</button>
+    <button onclick="colorsFamilyList()">按颜色排列</button>
+    <span id="colorNum"></span>
+
+    <div class="content">
+        <div class="canvas">
+            <canvas id="picCanvas"></canvas>
+        </div>
+        <div class="colors">
+            <ul id="colors"></ul>
+        </div>
+    </div>
     
-<!--    <div class="tip">yixiao</div>-->
+    
+    
+    <div id="cover" class="cover">
+        处理中
+    </div>
 </body>
 <script>
-var colors={}
-var AllColor={}
-var likeColors={}
+var colors={}//统计颜色出现的次数
+var AllColor={}//所有颜色的坐标
+var likeColors={}//相似的颜色集合
+var file=''
+var fillColor="white"
+var colorNum=0
+var smallColor=50
+document.getElementById("fillColorNum").innerHTML="填充次数小于x的颜色"
+function setSmallColor(e){
+    //设置小于x的颜色值
+    smallColor=e.value
+    document.getElementById("fillColorNum").innerHTML="填充次数小于x的颜色"
+}
+function colorsFamilyList(){
+    //按颜色排列
+    colorsFamilyListSort(colors)
+}
+function colorsFamilyListSort(o){
+    //按颜色排列算法
+    var colorArr=[];
+    var likeColors=[];
+    for(var i in o){
+        colorArr.push({color:i,num:o[i].num})
+
+    }
+    
+    colorArr.forEach((item,index)=>{
+        likeColors[index]=[item]
+        colorArr.forEach((it2,in2)=>{
+            // console.log(item.color,it2.color,colorIsLike(item.color,it2.color),'item.color,it2.color') 
+            if(colorIsLike(item.color,it2.color)<50){
+                // console.log('-&&----------------------------------------')
+                var canPush=true
+                likeColors[index].forEach((it3,in3)=>{
+                    if(it3.color==it2.color){
+                        canPush=false;
+                    }
+                })
+                if(canPush){
+                    likeColors[index].push(it2)
+                    colorArr.splice(in2,1)
+                }
+               
+                
+                // if(likeColors[index]!=it2){
+                //     likeColors[index].push(it2)
+                //     colorArr.splice(in2,1)
+                // }
+                // console.log(index,it2)
+                
+            }
+            
+        })
+        // console.log('------------')
+    })
+    console.log(likeColors,colorArr)
+    // return;
+    var colorsArr=[]
+    likeColors.forEach((item,index)=>{
+        sort({},item).reverse().forEach((it2,in2)=>{
+            colorsArr.push(it2)
+        })
+    })
+    addColorDOM(colorsArr,true)
+    
+}
+function colorIsLike(c1,c2){
+    //判断颜色是否相似
+    c1=c1.split(",")
+    c2=c2.split(",")
+    r3 =( c1[0]-c2[0]) / 256
+    g3 = (c1[1]-c2[1]) / 256
+    b3 = (c1[2]-c2[2]) / 256
+    diff = Math.sqrt(r3 * r3 + g3 * g3 + b3 * b3)
+    return diff*100 //值越小 越相似
+}
+function autoFillColor(type){
+    //填充次数小于50的颜色
+    for(var i in colors){
+        if(type=='s'&&colors[i].num<smallColor){
+            setColorForCanvas(AllColor[i])
+            colorNum=colorNum-1;
+            delete colors[i]
+        }
+        if(type=='b'&&colors[i].num>smallColor){
+            setColorForCanvas(AllColor[i])
+            colorNum=colorNum-1;
+            delete colors[i]
+        }
+    }
+    addColorDOM(colors)
+    document.getElementById("colorNum").innerHTML="剩下的颜色数量"+colorNum
+}
+function setFillColor(e){
+    fillColor=e.value
+}
+
+function cover(show){
+    if(show){
+        document.getElementById("cover").classList.add("active")
+    }else{
+        document.getElementById("cover").classList.remove("active")
+    }
+   
+}
+function getPicBtn(){
+    cover(true);
+    setTimeout(()=>{
+        init(); 
+    },500)
+    
+}
+function init(){
+    cover(true);
+    var startTime=new Date().getTime()
+    colors={};
+    AllColor={}
+    likeColors={}
+    
+    var canvas = document.getElementById('picCanvas');
+    var ctx = canvas.getContext('2d');
+    getColor(canvas.width,canvas.height,ctx)    
+    addColorDOM(colors)   
+    var newPic=canvas.toDataURL('image/png');
+    var img=new Image();
+    img.src=newPic;
+    img.onload=()=>{
+        ctx.drawImage(img,0,0,canvas.width,canvas.height);
+        cover(false)
+    }
+    
+}
 function getPic(r){
+        file=r;
         colors={};
-        document.getElementById('colors').innerHTML=""
         var reader = new FileReader();
         var img=new Image();
         var fileObj={}
@@ -44,12 +236,9 @@ function getPic(r){
                 canvas.height=img.height;
                 var ctx = canvas.getContext('2d');
                 ctx.drawImage(img,0,0,img.width,img.height);
-                console.log(img.height,img.width,'img.height,img.width')
                 getColor(img.width,img.height,ctx)
                 addColorDOM(colors)   
-                console.log(AllColor)
-                
-                
+                console.log(likeColors,'likeColors')
             }
         }
 }
@@ -80,24 +269,32 @@ function getColor(w,h,ctx){
 
 }
 
-function addColorDOM(o){
-    var arr=sort(o).reverse()
+function addColorDOM(o,nosort){
+    document.getElementById('colors').innerHTML=""
+    if(nosort){
+        var arr=o
+    }else{
+        var arr=sort(o).reverse()
+    }
+    
     var d=document.createDocumentFragment();
     var num=0;
     var liDOM;
-    
+    colorNum=arr.length;
+    document.getElementById("colorNum").innerHTML="剩下的颜色数量"+arr.length
     for(var i=0;i<arr.length;i++){
         liDOM=document.createElement("li")
         liDOM.textContent ="颜色  "+arr[i].color+"    共"+arr[i].num+"次";
         liDOM.setAttribute('data-color',arr[i].color)
         liDOM.onclick=function(liDOM){
-//            console.log(liDOM.target.dataset.color)
+        //    console.log(AllColor[liDOM.target.dataset.color])
 //            console.log(likeColors[liDOM.target.dataset.color])
-            for(var i in likeColors[liDOM.target.dataset.color]){
-                
-                setColorForCanvas(AllColor[i]);
-            }
-//            
+            // for(var i in likeColors[liDOM.target.dataset.color]){
+                setColorForCanvas(AllColor[liDOM.target.dataset.color]);
+            // }
+            this.style.display="none"
+            colorNum=colorNum-1
+            document.getElementById("colorNum").innerHTML="剩下的颜色数量"+colorNum
         }
         liDOM.style.background="rgba("+arr[i].color+")"
         d.append(liDOM);    
@@ -108,44 +305,46 @@ function addColorDOM(o){
     
 function checkColor(arr){
     //检查颜色是否跟已经存在的颜色存在相似的情况 有相似值返回相似值 没有相似值返回原值
-    var sum=0;
-    var colorsDifference=[]
-    for(var i in colors){
-        sum=0;
-        for(var j=0;j<i.split(",").length;j++){
-             sum+= Math.abs(i.split(",")[j]-arr[j])
-            colorsDifference.push()
-        }
-        if(sum<100){
-            if(!likeColors[i]){
-                likeColors[i]={
-                    [arr.toString()]:{
-                        color:arr.toString(),
-                    },
-                    [i]:{
-                        color:i,
-                    }
+    // var sum=0;
+    // var colorsDifference=[]
+    // for(var i in colors){
+    //     sum=0;
+    //     for(var j=0;j<i.split(",").length;j++){
+    //          sum+= Math.abs(i.split(",")[j]-arr[j])
+    //         colorsDifference.push()
+    //     }
+    //     if(sum<50){
+    //         if(!likeColors[i]){
+    //             likeColors[i]={
+    //                 [arr.toString()]:{
+    //                     color:arr.toString(),
+    //                 },
+    //                 [i]:{
+    //                     color:i,
+    //                 }
                     
-                }
+    //             }
                 
-            }else{
-                likeColors[i][arr.toString()]={
-                      color:arr.toString(),
-                }
-            }
-            return i;
-        }
+    //         }else{
+    //             likeColors[i][arr.toString()]={
+    //                   color:arr.toString(),
+    //             }
+    //         }
+    //     }
         
-    }
+    // }
     return arr.toString()
     
 }
     
-function sort(obj){
+function sort(obj,arr){
     //排序
-    var arr=[]
-    for(var i in obj){
-        arr.push({num:obj[i].num,color:i})
+    // var arr=[]
+    if(!arr){
+        arr=[]
+        for(var i in obj){
+            arr.push({num:obj[i].num,color:i})
+        }
     }
     for(var i=0;i<arr.length-1;i++){
         for(var j=0;j<arr.length-i-1;j++){
@@ -163,7 +362,7 @@ function setColorForCanvas(c){
     //在canvas 上绘制 覆盖
     var canvas = document.getElementById('picCanvas');
     var ctx = canvas.getContext('2d');
-    ctx.fillStyle = "white"; 　
+    ctx.fillStyle =fillColor;
     for(var i=0;i<c.xys.length;i++){
         ctx.fillRect(c.xys[i][0],c.xys[i][1],1,1);
     }
